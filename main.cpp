@@ -8,7 +8,7 @@
 #include <iomanip>
 #include <boost/format.hpp>
 
-#include <chrono>
+
 #include <thread>
 
 #include "instruction_set.h"
@@ -177,6 +177,7 @@ public:
         else if ((op & 0xF000) == 0xd000) {
             std::cout << boost::format("sprite %1$02x %2$02x %3$02x\n") % ((op & 0x0F00) >> 8) % ((op & 0x00F0) >> 4) %
                          (op & 0x000F);
+            // TODO
         }
         else if ((op & 0xF000) == 0x2000) {
             std::cout << boost::format("call %1$03x\n") % (op & 0x0FFF);
@@ -223,6 +224,22 @@ public:
             CHIP8_ASSERT( reg < REG_NUMBER, "Invalid reg number");
             m_regs.DT = m_regs.V[reg];
         }
+        else if ( (op & 0xF000) == 0xF000 && (op & 0x000F) == 0x0007) {
+            auto reg = (uint8_t) ( op & 0x0F00 ) >> 8;
+            CHIP8_ASSERT( reg < REG_NUMBER, "Fatal, wrong register");
+            m_regs.V[reg] = m_regs.DT;
+        }
+        else if ( (op & 0xF000 ) == 0x3000 ) {
+            auto reg = ( op & 0x0F00 ) >> 8;
+            uint16_t  val = (uint16_t) (op & 0x00FF);
+            if ( m_regs.V[reg] == val )
+                m_regs.PC += 2;
+        }
+        else if ( (op & 0xF000 ) == 0x1000 ) {
+            uint16_t addr = (uint16_t) (op & 0x0FFF );
+            m_regs.PC = addr;
+            std::cout << boost::format( "LD %1$03x PC\n") % addr;
+        }
         else {
             std::cout << boost::format("Unknown opcode %1$04x\n") % (int) op;
             return false;
@@ -258,7 +275,7 @@ int main(int argc, char *argv[]) {
 
 
 #if defined DEBUG
-    using clock_tick = std::chrono::duration<float, std::ratio<1,1>>;
+    using clock_tick = std::chrono::duration<float, std::ratio<1,4>>;
 #else
     using clock_tick = std::chrono::duration<float, std::ratio<1,60>>;
 #endif
@@ -268,12 +285,13 @@ int main(int argc, char *argv[]) {
 
     auto tick = clock_tick(1);
     while (true) {
-        std::cout << "new cycle" << std::endl;
+
         auto op = cpu.fetch();
         if (!cpu.decode(op)) {
             break;
         }
         std::this_thread::sleep_for(tick);
+        std::cout << boost::format( "tick: %1$03x\n" ) % op;
     }
 
     cpu.m_mem->dump();
