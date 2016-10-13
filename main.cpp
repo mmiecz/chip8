@@ -228,7 +228,7 @@ public:
             case 0x6000: {
                 int reg = (op & 0x0F00) >> 8;
                 uint8_t val = (uint8_t) (op & 0x00FF);
-                std::cerr << boost::format( "MOV %1\n") % (int)val;
+                std::cout << boost::format( "mov %1$02x V%2%\n" ) % val % reg;
                 m_regs.V[reg] = (uint8_t) val;
                 break;
             }
