@@ -162,6 +162,166 @@ public:
         return data;
     }
 
+    bool decode_new( uint16_t op ) {
+        uint16_t cmd = (uint16_t) (op & 0xF000);
+        switch(cmd) {
+            case 0x1000: {
+                uint16_t addr = (uint16_t) (op & 0x0FFF );
+                m_regs.PC = addr;
+                std::cout << boost::format( "LD %1$03x PC\n") % addr;
+                break;
+            }
+            case 0x2000: {
+                std::cout << boost::format("CALL %1$03x\n") % (op & 0x0FFF);
+                m_mem->store(m_regs.SP--, (uint16_t) m_regs.PC);
+                m_regs.PC = (uint16_t) (op & 0x0FFF);
+                break;
+            }
+            case 0x3000: {
+                auto reg = ( op & 0x0F00 ) >> 8;
+                uint16_t  val = (uint16_t) (op & 0x00FF);
+                std::cout << boost::format( "SE V%1, %2$03x\n") % reg % val;
+                if ( m_regs.V[reg] == val )
+                    m_regs.PC += 2;
+                break;
+            }
+            case 0x4000: {
+                auto reg = ( op & 0x0F00 ) >> 8;
+                uint16_t  val = (uint16_t) (op & 0x00FF);
+                std::cout << boost::format( "SNE V%1, %2$03x\n") % reg % val;
+                if ( m_regs.V[reg] != val )
+                    m_regs.PC += 2;
+                break;
+            }
+            case 0x5000: {
+                auto reg1 = ( op & 0x0F00 ) >> 8;
+                auto reg2 = ( op & 0x00F0 ) >> 4;
+                std::cout << boost::format( "SE V%1, V%2\n") % reg1 % reg2;
+                if( m_regs.V[reg1] == m_regs.V[reg2])
+                    m_regs.PC += 2;
+                break;
+            }
+            case 0x6000: {
+                auto reg = (op & 0x0F00) >> 8;
+                auto val = (op & 0x00FF);
+                std::cout << boost::format( "MOV %1%03x, V%2\n") % val % reg;
+                m_regs.V[reg] = (uint8_t) val;
+                break;
+            }
+            case 0x7000: {
+                std::uint8_t add = (uint8_t) (op & 0x00FF);
+                auto reg = (op & 0x0F00) >> 8;
+                CHIP8_ASSERT( reg < REG_NUMBER, "Invalid reg number");
+                std::cout << boost::format( "ADD V%1, %2$03x\n") % reg % add;
+                m_regs.V[reg] += add;
+                break;
+            }
+            case 0x8000: {
+                auto opt = op & 0x000F;
+                switch( opt ) {
+                    case 0x0001: {
+                        break;
+                    }
+                    case 0x0002: {
+                        break;
+                    }
+                    case 0x0003: {
+                        break;
+                    }
+                    case 0x0004: {
+                        break;
+                    }
+                    case 0x0005: {
+                        break;
+                    }
+                    case 0x0006: {
+                        break;
+                    }
+                    case 0x0007: {
+                        break;
+                    }
+                    case 0x000E: {
+                        break;
+                    }
+                    default: {
+                        CHIP8_ASSERT( false, "Invalid opt in 0x8000x");
+                        break;
+                    }
+                }
+                break;
+            }
+            case 0x9000: {
+                break;
+            }
+            case 0xA000: {
+                auto val = (op & 0x0FFF);
+                std::cout << boost::format( "MVI %1$03x\n") % val;
+                m_regs.I = (uint16_t) val;
+                break;
+            }
+            case 0xB000: {
+                break;
+            }
+            case 0xC000: {
+                break;
+            }
+            case 0xD000: {
+                break;
+            }
+            case 0xE000: {
+                auto opt = op & 0x00FF;
+                switch( opt ) {
+                    case 0x009E: {
+                        break;
+                    }
+                    case 0x00A1: {
+                        break;
+                    }
+                    default:
+                        CHIP8_ASSERT( false, "Invalid opt in 0xE000x");
+                }
+            }
+            case 0xF000: {
+                auto opt = op & 0x00FF;
+                switch( opt ) {
+                    case 0x0007: {
+                        break;
+                    }
+                    case 0x000A: {
+                        break;
+                    }
+                    case 0x0015: {
+                        break;
+                    }
+                    case 0x0018: {
+                        break;
+                    }
+                    case 0x001E: {
+                        break;
+                    }
+                    case 0x0029: {
+                        break;
+                    }
+                    case 0x0033: {
+                        break;
+                    }
+                    case 0x0055: {
+                        break;
+                    }
+                    case 0x0065: {
+
+                    }
+                    default:
+                        CHIP8_ASSERT( false, "Invalid opt in 0xF000x");
+                }
+                break;
+            }
+            default:
+                CHIP8_ASSERT( false, "Invalid opcode!");
+                return false;
+        }
+        return true;
+    }
     bool decode(std::uint16_t op) {
         if ((op & 0xF000) == 0x6000) {
             auto reg = (op & 0x0F00) >> 8;
