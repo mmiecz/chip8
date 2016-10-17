@@ -198,7 +198,7 @@ public:
                 break;
             }
             case 0x2000: {
-                std::cout << boost::format("CALL %1$03x\n") % (op & 0x0FFF);
+                std::cout << boost::format("call %1$03x\n") % (op & 0x0FFF);
                 m_mem->store(m_regs.SP--, (uint16_t) m_regs.PC);
                 m_regs.PC = (uint16_t) (op & 0x0FFF);
                 break;
@@ -222,7 +222,7 @@ public:
             case 0x5000: {
                 auto reg1 = ( op & 0x0F00 ) >> 8;
                 auto reg2 = ( op & 0x00F0 ) >> 4;
-                std::cout << boost::format( "SE V%1, V%2\n") % reg1 % reg2;
+                std::cout << boost::format( "se V%1, V%2\n") % reg1 % reg2;
                 if( m_regs.V[reg1] == m_regs.V[reg2])
                     m_regs.PC += 2;
                 break;
@@ -321,7 +321,7 @@ public:
             }
             case 0xA000: {
                 auto val = (op & 0x0FFF);
-                std::cout << boost::format( "MVI %1$03x\n") % val;
+                std::cout << boost::format( "mvi %1$03x\n") % val;
                 m_regs.I = (uint16_t) val;
                 break;
             }
@@ -472,7 +472,7 @@ int main(int argc, char *argv[]) {
     while (true) {
 
         auto op = cpu.fetch();
-        std::cout << boost::format( "fetch %1$03x\n" ) % op;
+        std::cout << boost::format( "FETCH %1$03x\n" ) % op;
         if (!cpu.decode(op)) {
             break;
         }
