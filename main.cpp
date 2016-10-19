@@ -275,7 +275,7 @@ int main(int argc, char *argv[]) {
 
     Display display;
 
-    std::string test("This is test window");
+    std::string test("CHIP8");
     display.init(test, 640, 320);
 
 #if defined DEBUG
