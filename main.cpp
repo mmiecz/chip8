@@ -11,8 +11,6 @@
 
 #include <thread>
 
-#include "instruction_set.h"
-
 #define CHIP8_ASSERT(x, msg) BOOST_ASSERT_MSG(x, msg)
 
 void vec_print(std::vector<std::uint8_t> &vec) {
