@@ -11,6 +11,8 @@
 
 #include <thread>
 
+#include "Display.h"
+
 #define CHIP8_ASSERT(x, msg) BOOST_ASSERT_MSG(x, msg)
 
 void vec_print(std::vector<std::uint8_t> &vec) {
@@ -271,6 +273,10 @@ int main(int argc, char *argv[]) {
     CPU cpu;
     cpu.init(std::move(mem));
 
+    Display display;
+
+    std::string test("This is test window");
+    display.init(test, 640, 320);
 
 #if defined DEBUG
     using clock_tick = std::chrono::duration<float, std::ratio<1,4>>;
