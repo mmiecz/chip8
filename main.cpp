@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iterator>
 #include <iomanip>
+#include <random>
 #include <boost/format.hpp>
 
 
@@ -162,87 +163,271 @@ public:
         return data;
     }
 
-    bool decode(std::uint16_t op) {
-        if ((op & 0xF000) == 0x6000) {
-            auto reg = (op & 0x0F00) >> 8;
-            auto val = (op & 0x00FF);
-            std::cout << "mov " << val << " V" << reg << std::endl;
-            m_regs.V[reg] = (uint8_t) val;
-        }
-        else if ((op & 0xF000) == 0xa000) {
-            auto val = (op & 0x0FFF);
-            std::cout << "mvi " << ((op & 0x0FFF)) << std::endl;
-            m_regs.I = (uint16_t) val;
-        }
-        else if ((op & 0xF000) == 0xd000) {
-            std::cout << boost::format("sprite %1$02x %2$02x %3$02x\n") % ((op & 0x0F00) >> 8) % ((op & 0x00F0) >> 4) %
-                         (op & 0x000F);
-            // TODO
-        }
-        else if ((op & 0xF000) == 0x2000) {
-            std::cout << boost::format("call %1$03x\n") % (op & 0x0FFF);
-            m_mem->store(m_regs.SP--, (uint16_t) m_regs.PC);
-            m_regs.PC = (uint16_t) (op & 0x0FFF);
-        }
-        else if (op == 0x00EE) {
-            m_regs.SP++;
-            auto addr = m_mem->loadDW(m_regs.SP);
-            m_regs.PC = addr;
-            std::cout << "ret" << std::endl;
-        }
-        else if ((op & 0xF000) == 0xF000 && (op & 0x00FF) == 0x0033) {
-            auto val = m_regs.V[(op & 0x0F00) >> 8];
-            uint8_t units = (uint8_t) (val % 10);
-            uint8_t tens = (uint8_t) ((val / 10) % 10);
-            uint8_t hundreds = (uint8_t) ((val / 100) % 10);
-            uint16_t addr = m_regs.I;
-            m_mem->store(addr++, hundreds);
-            m_mem->store(addr++, tens);
-            m_mem->store(addr, units);
-        }
-        else if ((op & 0xF000) == 0xF000 && (op & 0x00FF) == 0x0065) {
-            auto reg_end = (op & 0x0F00) >> 8;
-            for (int i = 0; i < reg_end; ++i) {
-                m_regs.V[i] = m_mem->loadW(m_regs.I++);
+    bool decode( uint16_t op ) {
+        uint16_t cmd = (uint16_t) (op & 0xF000);
+        switch(cmd) {
+            case 0x000: {
+                auto opt = op & 0x00FF;
+                if( (op & 0x0F00) == 0 ) {
+                    switch( opt ) {
+                        case 0x00E0: {
+                            break;
+                        }
+                        case 0x00EE: {
+                            m_regs.SP++;
+                            auto addr = m_mem->loadDW(m_regs.SP);
+                            m_regs.PC = addr;
+                            std::cout << "ret" << std::endl;
+                            break;
+                        }
+                        default: {
+                            break;
+                        }
+                    }
+                }
+                else {
+                    m_regs.PC = (uint16_t) (op & 0x0FFF);
+                    // 0nnn - nnn addr to jump to
+                }
+
             }
-        }
-        else if ((op& 0xF000) == 0xF000 && (op & 0x00FF) == 0x0029) {
-            auto val = (op & 0x0F00) >> 8;
-            CHIP8_ASSERT( val < REG_NUMBER, "Invalid Reg number in instruction Fx29");
-            auto chr = m_regs.V[val]; // Char in vx
-            std::uint16_t addr = (uint16_t) (chr * 5); // Calculate address of font
-            m_regs.I = addr;
-        }
-        else if ( (op & 0xF000) == 0x7000) {
-            std::uint8_t add = (uint8_t) (op & 0x00FF);
-            auto reg = (op & 0x0F00) >> 8;
-            CHIP8_ASSERT( reg < REG_NUMBER, "Invalid reg number");
-            m_regs.V[reg] += add;
-        }
-        else if ( (op & 0xF000) == 0xF000 && (op & 0x00FF) == 0x0015) {
-            auto reg = (op & 0x0F00) >> 8;
-            CHIP8_ASSERT( reg < REG_NUMBER, "Invalid reg number");
-            m_regs.DT = m_regs.V[reg];
-        }
-        else if ( (op & 0xF000) == 0xF000 && (op & 0x000F) == 0x0007) {
-            auto reg = (uint8_t) ( op & 0x0F00 ) >> 8;
-            CHIP8_ASSERT( reg < REG_NUMBER, "Fatal, wrong register");
-            m_regs.V[reg] = m_regs.DT;
-        }
-        else if ( (op & 0xF000 ) == 0x3000 ) {
-            auto reg = ( op & 0x0F00 ) >> 8;
-            uint16_t  val = (uint16_t) (op & 0x00FF);
-            if ( m_regs.V[reg] == val )
-                m_regs.PC += 2;
-        }
-        else if ( (op & 0xF000 ) == 0x1000 ) {
-            uint16_t addr = (uint16_t) (op & 0x0FFF );
-            m_regs.PC = addr;
-            std::cout << boost::format( "LD %1$03x PC\n") % addr;
-        }
-        else {
-            std::cout << boost::format("Unknown opcode %1$04x\n") % (int) op;
-            return false;
+            case 0x1000: {
+                uint16_t addr = (uint16_t) (op & 0x0FFF );
+                m_regs.PC = addr;
+                std::cout << boost::format( "ld %1$03x PC\n") % addr;
+                break;
+            }
+            case 0x2000: {
+                std::cout << boost::format("call %1$03x\n") % (op & 0x0FFF);
+                m_mem->store(m_regs.SP--, (uint16_t) m_regs.PC);
+                m_regs.PC = (uint16_t) (op & 0x0FFF);
+                break;
+            }
+            case 0x3000: {
+                auto reg = ( op & 0x0F00 ) >> 8;
+                uint16_t  val = (uint16_t) (op & 0x00FF);
+                std::cout << boost::format( "se V%1, %2$03x\n") % reg % val;
+                if ( m_regs.V[reg] == val )
+                    m_regs.PC += 2;
+                break;
+            }
+            case 0x4000: {
+                auto reg = ( op & 0x0F00 ) >> 8;
+                uint16_t  val = (uint16_t) (op & 0x00FF);
+                std::cout << boost::format( "sne V%1, %2$03x\n") % reg % val;
+                if ( m_regs.V[reg] != val )
+                    m_regs.PC += 2;
+                break;
+            }
+            case 0x5000: {
+                auto reg1 = ( op & 0x0F00 ) >> 8;
+                auto reg2 = ( op & 0x00F0 ) >> 4;
+                std::cout << boost::format( "se V%1, V%2\n") % reg1 % reg2;
+                if( m_regs.V[reg1] == m_regs.V[reg2])
+                    m_regs.PC += 2;
+                break;
+            }
+            case 0x6000: {
+                int reg = (op & 0x0F00) >> 8;
+                uint8_t val = (uint8_t) (op & 0x00FF);
+                std::cout << boost::format( "mov %1$02x V%2%\n" ) % (int)val % reg;
+                m_regs.V[reg] = (uint8_t) val;
+                break;
+            }
+            case 0x7000: {
+                std::uint8_t add = (uint8_t) (op & 0x00FF);
+                auto reg = (op & 0x0F00) >> 8;
+                CHIP8_ASSERT( reg < REG_NUMBER, "Invalid reg number");
+                std::cout << boost::format( "add V%1%, %2$03x\n") % reg % add;
+                m_regs.V[reg] += add;
+                break;
+            }
+            case 0x8000: {
+                auto opt = op & 0x000F;
+                int x = (op & 0x00F00) >> 8;
+                int y = (op & 0x000F0) >> 4;
+                switch( opt ) {
+                    case 0x0000: {
+                        m_regs.V[x] = m_regs.V[y];
+                        break;
+                    }
+                    case 0x0001: {
+                        m_regs.V[x] = m_regs.V[x] | m_regs.V[y];
+                        break;
+                    }
+                    case 0x0002: {
+                        m_regs.V[x] = m_regs.V[x] & m_regs.V[y];
+                        break;
+                    }
+                    case 0x0003: {
+                        m_regs.V[x] = m_regs.V[x] ^ m_regs.V[y];
+                        break;
+                    }
+                    case 0x0004: {
+                        int sum = m_regs.V[x] + m_regs.V[y];
+                        if(sum > 255 )
+                            m_regs.VF |= 1;
+                        m_regs.V[x] = (uint8_t) (sum & 0xFF);
+                        break;
+                    }
+                    case 0x0005: {
+                        int diff = m_regs.V[x] - m_regs.V[y];
+                        if(diff < 0)
+                            m_regs.VF = 1;
+                        else
+                            m_regs.VF = 0;
+                        m_regs.V[x] = (uint8_t) diff;
+                        break;
+                    }
+                    case 0x0006: {
+                        if( ( m_regs.V[x] &= 1 )== 1)
+                            m_regs.VF = 1;
+                        else
+                            m_regs.VF = 0;
+                        m_regs.V[x] /= 2;
+                        break;
+                    }
+                    case 0x0007: {
+                        int diff = m_regs.V[y] - m_regs.V[x];
+                        if(diff < 0)
+                            m_regs.VF = 1;
+                        else
+                            m_regs.VF = 0;
+                        m_regs.V[x] = (uint8_t) diff;
+                        break;
+                    }
+                    case 0x000E: {
+                        if (m_regs.V[x] &= (1 << 8) == 1)
+                            m_regs.VF = 1;
+                        else
+                            m_regs.VF = 0;
+                        m_regs.V[x] *= 2;
+                        break;
+                    }
+                    default: {
+                        CHIP8_ASSERT( false, "Invalid opt in 0x8000x");
+                        break;
+                    }
+                }
+                break;
+            }
+            case 0x9000: {
+                auto x = ( op & 0x0F00) >> 8;
+                auto y = ( op & 0x00F0) >> 4;
+                std::cout << boost::format( "sne V%1% V%2%\n") % x % y;
+                if( m_regs.V[x] != m_regs.V[y])
+                    m_regs.PC += 2;
+                break;
+            }
+            case 0xA000: {
+                auto val = (op & 0x0FFF);
+                std::cout << boost::format( "mvi %1$03x\n") % val;
+                m_regs.I = (uint16_t) val;
+                break;
+            }
+            case 0xB000: {
+                uint16_t addr = (uint16_t) (m_regs.V[0] + (op & 0x0FFF));
+                CHIP8_ASSERT( addr < Mem::MEM_END && addr > Mem::MEM_START, "Jump to wrong address");
+                std::cout << boost::format( "jp %1$02x %2$02x\n") % m_regs.V[0] % (op & 0x0FFF);
+                m_regs.PC = addr;
+                break;
+            }
+            case 0xC000: {
+                std::random_device rd;
+                std::mt19937 gen(rd());
+                std::uniform_int_distribution<> dis(0, 255);
+                uint8_t  rand = (uint8_t) dis(gen);
+                int reg = (op & 0x0F00) >> 8;
+                m_regs.V[reg] = (uint8_t) (rand & (op & 0x00FF));
+                break;
+            }
+            case 0xD000: {
+                std::cout << boost::format("sprite %1$02x %2$02x %3$02x\n") %
+                        ((op & 0x0F00) >> 8) % ((op & 0x00F0) >> 4) % (op & 0x000F);
+                break;
+            }
+            case 0xE000: {
+                auto opt = op & 0x00FF;
+                switch( opt ) {
+                    case 0x009E: {
+                        break;
+                    }
+                    case 0x00A1: {
+                        break;
+                    }
+                    default:
+                        CHIP8_ASSERT( false, "Invalid opt in 0xE000x");
+                }
+            }
+            case 0xF000: {
+                auto opt = op & 0x00FF;
+                switch( opt ) {
+                    case 0x0007: {
+                        auto reg = (uint8_t) ( op & 0x0F00 ) >> 8;
+                        CHIP8_ASSERT( reg < REG_NUMBER, "Fatal, wrong register");
+                        m_regs.V[reg] = m_regs.DT;
+                        break;
+                    }
+                    case 0x000A: {
+                        //Key press
+                        break;
+                    }
+                    case 0x0015: {
+                        auto reg = (op & 0x0F00) >> 8;
+                        CHIP8_ASSERT( reg < REG_NUMBER, "Invalid reg number");
+                        m_regs.DT = m_regs.V[reg];
+                        break;
+                    }
+                    case 0x0018: {
+                        break;
+                    }
+                    case 0x001E: {
+                        int reg = ( op & 0x0F00) >> 8;
+                        m_regs.I = m_regs.I + m_regs.V[reg];
+                        break;
+                    }
+                    case 0x0029: {
+                        auto val = (op & 0x0F00) >> 8;
+                        CHIP8_ASSERT( val < REG_NUMBER, "Invalid Reg number in instruction Fx29");
+                        auto chr = m_regs.V[val]; // Char in vx
+                        std::uint16_t addr = (uint16_t) (chr * 5); // Calculate address of font
+                        m_regs.I = addr;
+                        break;
+                    }
+                    case 0x0033: {
+                        auto val = m_regs.V[(op & 0x0F00) >> 8];
+                        uint8_t units = (uint8_t) (val % 10);
+                        uint8_t tens = (uint8_t) ((val / 10) % 10);
+                        uint8_t hundreds = (uint8_t) ((val / 100) % 10);
+                        uint16_t addr = m_regs.I;
+                        m_mem->store(addr++, hundreds);
+                        m_mem->store(addr++, tens);
+                        m_mem->store(addr, units);
+                        break;
+                    }
+                    case 0x0055: {
+                        int reg_end = (op & 0x0F00) >> 8;
+                        std::cout << boost::format( "str %1%\n") % reg_end;
+                        for(int i = 0; i < reg_end; i++) {
+                            m_mem->store(m_regs.I++, m_regs.V[i]);
+                        }
+                        break;
+                    }
+                    case 0x0065: {
+                        auto reg_end = (op & 0x0F00) >> 8;
+                        for (int i = 0; i < reg_end; ++i) {
+                            m_regs.V[i] = m_mem->loadW(m_regs.I++);
+                        }
+                        break;
+                    }
+                    default:
+                        CHIP8_ASSERT( false, "Invalid opt in 0xF000x");
+                }
+                break;
+            }
+            default:
+                CHIP8_ASSERT( false, "Invalid opcode!");
+                return false;
         }
         return true;
     }
@@ -279,7 +464,7 @@ int main(int argc, char *argv[]) {
     display.init(test, 640, 320);
 
 #if defined DEBUG
-    using clock_tick = std::chrono::duration<float, std::ratio<1,4>>;
+    using clock_tick = std::chrono::duration<float, std::ratio<1,1>>;
 #else
     using clock_tick = std::chrono::duration<float, std::ratio<1,60>>;
 #endif
@@ -291,11 +476,12 @@ int main(int argc, char *argv[]) {
     while (true) {
 
         auto op = cpu.fetch();
+        std::cout << boost::format( "FETCH %1$03x\n" ) % op;
         if (!cpu.decode(op)) {
             break;
         }
         std::this_thread::sleep_for(tick);
-        std::cout << boost::format( "tick: %1$03x\n" ) % op;
+
     }
 
     cpu.m_mem->dump();
